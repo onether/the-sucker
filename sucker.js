@@ -87,13 +87,13 @@ var RIFFWAVE = function(data) {
         return [i&0xFF, (i>>8)&0xFF];
     }
 
-    function split16bitArray(data) {
+    function split16bitArray(d) {
         var r = [];
         var j = 0;
-        var len = data.length;
+        var len = d.length;
         for (var i=0; i<len; i++) {
-            r[j++] = data[i] & 0xFF;
-            r[j++] = (data[i]>>8) & 0xFF;
+            r[j++] = d[i] & 0xFF;
+            r[j++] = (d[i]>>8) & 0xFF;
         }
         return r;
     }
@@ -210,7 +210,7 @@ window.onload = function ()
 	app.gen_sfx_data = function (len, fin, fout, fn)
 	{
 		var data = [];
-		var factor;
+		var f;
 		
 		for (var i=0; i<len + fout; i++) {
 			if(i >= len) {
@@ -218,10 +218,10 @@ window.onload = function ()
 				continue;
 			}
 			
-			factor = (i < fin) ? i / fin :
+			f = (i < fin) ? i / fin :
 						 ((i >= len - fin) ? 1 - (i - len + fin - 1) / fin : 1);
 		
-			data[i] = Math.round(128 + fn(i) * factor);
+			data[i] = Math.round(128 + fn(i) * f);
 		}
 		
 		return data;
@@ -250,22 +250,22 @@ window.onload = function ()
 		app.fps = 0;
 	}
 	
-	app.grant_achv = function (name, ct, t, i)
+	app.grant_achv = function (n, ct, t, i)
 	{
 		var a = app.achv;
-		a[name][0] += i;
-		clearTimeout(app[name + '_tout']);
-		if (a[name][0] === ct)
+		a[n][0] += i;
+		clearTimeout(app[n + '_tout']);
+		if (a[n][0] === ct)
 		{
-			app.toggle_bool(name + '_medal', 3000, true);
-			a[name][0] = 0;
-			a[name][1] += 1;
+			app.toggle_bool(n + '_medal', 3000, true);
+			a[n][0] = 0;
+			a[n][1] += 1;
 			app.play_sfx('exp_1');
 		} else
 		{
-			app.set_timeout(name + '_tout', function () 
+			app.set_timeout(n + '_tout', function () 
 			{
-				a[name][0] = 0;
+				a[n][0] = 0;
 			}, t);
 		}
 	}
@@ -326,7 +326,7 @@ window.onload = function ()
 			var color;
 			
 			app.noise_frames = [];
-			app.current_noise_frame = 0;
+			app.crnt_noise_frame = 0;
 			app.noise_rate = 0;
 			
 			for (var a = 0; a < 16; a += 1)
@@ -359,10 +359,10 @@ window.onload = function ()
 			{
 				app.noise_rate = 0;
 				ctx.clearRect(0, 0, app.w, app.h);
-				ctx.fillStyle = app.noise_frames[app.current_noise_frame];
+				ctx.fillStyle = app.noise_frames[app.crnt_noise_frame];
 				ctx.fillRect(0, 0, app.w, app.h);
 				
-				app.current_noise_frame = app.current_noise_frame + 1 === app.noise_frames.length ? 0 : app.current_noise_frame + 1;
+				app.crnt_noise_frame = app.crnt_noise_frame + 1 === app.noise_frames.length ? 0 : app.crnt_noise_frame + 1;
 			} else 
 			{
 				app.noise_rate+= 1;
@@ -370,10 +370,10 @@ window.onload = function ()
 		}
 	}
 	
-	app.create_obj = function (obj_name, c)
+	app.create_obj = function (o_n, c)
 	{
 		var id;
-		var obj = new app[obj_name]();
+		var obj = new app[o_n]();
 		
 		if (app[obj.type + '_id'].length > 0)
 		{
@@ -392,10 +392,10 @@ window.onload = function ()
 		return obj;
 	}
 	
-	app.remove_obj = function (obj)
+	app.remove_obj = function (o)
 	{
-		app[obj.type + '_id'].push(obj.id);
-		delete app[obj.type][obj.id];
+		app[o.type + '_id'].push(o.id);
+		delete app[o.type][o.id];
 	}
 	
 	app.update_bot_track = function (t, v)
@@ -404,7 +404,7 @@ window.onload = function ()
 		
 		b.spawn[t] += v ? 1 : 0;
 		b.kill[t] += v ? 0 : 1;
-		b.alive[t] += v ? 1 : 0;
+		b.alive[t] += v ? 1 : -1;
 		b.alive_count += v ? 1 : -1;
 	}
 	
@@ -453,8 +453,8 @@ window.onload = function ()
 		p.move();
 		p.update_jump();
 		p.start_fall();
-		p.level_pads_coll();
-		p.level_bounds_coll();
+		p.lvl_pads_coll();
+		p.lvl_bnds_coll();
 		p.update_phs();
 		p.bots_coll();
 		p.update_grab();
@@ -483,14 +483,14 @@ window.onload = function ()
 	{
 		var t = 0;
 		
-		if ( ! app.can_spawn || app.wave_break || (app.bot_track.alive_count >= app.max_bot_count + (app.wave_timer / 10) && app.wave_timer < 100))
+		if ( ! app.can_spawn || app.wave_break || app.bot_track.alive_count >= app.max_bot_count + Math.min(app.wave_tmr / 15, 10))
 		{
 			return false;
 		}
 		
 		app.toggle_bool('can_spawn', app.bot_spawn_delay);
 		
-		if (app.bot_track.alive[0] < Math.min(app.wave / 2.2, 3) || app.wave < 1)
+		if (app.bot_track.alive[0] < Math.max((app.wave / 2.2) - (app.wave / 4) * (app.wave / app.wave_peak), 2) || app.wave < 1)
 		{
 			t = 0;
 		} else
@@ -500,9 +500,6 @@ window.onload = function ()
 				if (Math.random() < elem)
 				{
 					t = elem_id + 1;	
-				}  else
-				{
-					//return false;
 				}
 			});
 		}
@@ -522,13 +519,13 @@ window.onload = function ()
 			app.bot_chances[elem_id] = elem[0] * (app.wave / app.wave_peak) + elem[1];
 		});
 		
-		//app.chance_str = 'w:' + (app.wave) + ' x:' + app.max_bot_count + ' r:' + app.bot_spawn_delay +  ' c:';
+		//app.chance_str = 'w:' + (app.wave) + ' x:' + app.max_bot_count + ' r:' + //app.bot_spawn_delay +  ' c:';
 		//app.bot_chances.forEach(function (elem)
 		//{
 		//	app.chance_str += elem.toFixed(2) + '/';
 		//});
-		
-		app.wave_timer = 0;
+		//console.log(app.chance_str);
+		app.wave_tmr = 0;
 	}
 	
 	app.update = function ()
@@ -549,8 +546,8 @@ window.onload = function ()
 			}
 			case 1:
 			{
-				app.timer += 0.033;
-				app.wave_timer += 0.033;
+				app.tmr += 0.033;
+				app.wave_tmr += 0.033;
 		
 				app.update_player();
 				
@@ -559,15 +556,15 @@ window.onload = function ()
 					if (bot.can_move || app.plr.is_grab === false || app.plr.is_grab !== bot.id)
 					{
 						bot.move();
-						bot.level_pads_coll();
-						bot.level_bounds_coll();
+						bot.lvl_pads_coll();
+						bot.lvl_bnds_coll();
 						bot.update_phs();
 						bot.update_jump();
 						bot.update_pos();
 						
 					} else
 					{
-						bot.level_pads_coll();
+						bot.lvl_pads_coll();
 					}
 					bot.php = bot.hp;
 					bot.hp += bot.dhp;
@@ -608,7 +605,7 @@ window.onload = function ()
 				{
 					elem.update_phs();
 					elem.update_pos();
-					elem.level_pads_coll();
+					elem.lvl_pads_coll();
 					elem.update_anim_frame();
 				});
 				
@@ -812,9 +809,9 @@ window.onload = function ()
 	
 	app.reset_game_stngs = function ()
 	{
-		app.timer = 0;
+		app.tmr = 0;
 		app.wave = 0;
-		app.wave_timer = 0;
+		app.wave_tmr = 0;
 		app.wave_break = false;
 		app.shake = false;
 		app.can_spawn = true;
@@ -841,9 +838,9 @@ window.onload = function ()
 		};
 		app.bot_types = [
 			{skin: 'normal', dmg: 0, dx_max: 10, hp: 100 },
-			{skin: 'green', dmg: 0.37, dx_max: 11, hp: 125 },
-			{skin: 'red', dmg: 0.8, dx_max: 12, hp: 150 },
-			{skin: 'blue', dmg: 1.2, dx_max: 13, hp: 175 }
+			{skin: 'green', dmg: 0.47, dx_max: 11, hp: 125 },
+			{skin: 'red', dmg: 1.0, dx_max: 12, hp: 150 },
+			{skin: 'blue', dmg: 1.50, dx_max: 13, hp: 175 }
 		];
 		
 		app.blood = [];
@@ -925,7 +922,7 @@ window.onload = function ()
 		ctx.translate(w3 / 2, 0);
 		ctx.drawImage(app.cv.h_tmr.cv, 0, 0);
 		//time
-		app.draw_text(ctx, Math.floor(app.timer), 10 * 6, 0);
+		app.draw_text(ctx, Math.floor(app.tmr), 10 * 6, 0);
 		
 		//wave
 		//ctx.translate(w4, 0);
@@ -1190,7 +1187,7 @@ window.onload = function ()
 		
 		ctx.translate(0, 120);
 		app.draw_text(ctx, 'rank:#' + Math.floor(app.plr.rank) + ' score:' + app.plr.score, 0, 0, 2, 2, true);
-		app.draw_text(ctx, 'time:' + Math.floor(app.timer) + ' wave:' + (app.wave + 1), 0, 60, 2, 2, true);
+		app.draw_text(ctx, 'time:' + Math.floor(app.tmr) + ' wave:' + (app.wave + 1), 0, 60, 2, 2, true);
 		app.draw_text(ctx, 'kills:' + app.plr.kill_count, 0, 120, 2, 2, true);
 		
 		ctx.translate(-app.w / 2, 180);
@@ -1258,7 +1255,7 @@ window.onload = function ()
 			app.prompt_tout = setTimeout(function ()
 			{
 				p.name = prompt('New best! Enter your name');
-				app.save_h_score({name: p.name || 'unnamed', score: p.score, kills: p.kill_count, kill_types: app.bot_track.kill, time: app.timer, ckill_max_count: app.ckill_max_count, ckill_max_pts: app.ckill_max_pts, achv: app.achv});
+				app.save_h_score({name: p.name || 'unnamed', score: p.score, kills: p.kill_count, kill_types: app.bot_track.kill, time: app.tmr, ckill_max_count: app.ckill_max_count, ckill_max_pts: app.ckill_max_pts, achv: app.achv});
 				app.save_cfg('sucker_hs', app.h_scores);
 			}, 50);
 		}
@@ -1930,9 +1927,9 @@ window.onload = function ()
 			app.wave_peak = 20;
 			app.bot_count_fn = [1, 2];
 			app.bot_chances_fn = [
-				[0.56, 0.15],
-				[0.75, -0.15],
-				[1.3, -.75]
+				[0.66, 0.15],
+				[0.88, -0.30],
+				[1.15, -.75]
 			];
 			
 			app.reset_game_stngs();
@@ -2029,7 +2026,7 @@ window.onload = function ()
 		}
 	}
 	
-	app.Coll_Obj.prototype.level_pads_coll = function ()
+	app.Coll_Obj.prototype.lvl_pads_coll = function ()
 	{
 		var l = app.level;
 		var local_pad_coll = false;
@@ -2110,7 +2107,7 @@ window.onload = function ()
 		}, this);
 	}
 	
-	app.Coll_Obj.prototype.level_bounds_coll = function ()
+	app.Coll_Obj.prototype.lvl_bnds_coll = function ()
 	{
 		var p = this;
 		var l = app.level;
